@@ -18,7 +18,33 @@ the GNOME top panel, next to wifi / volume / battery.
   gnome-extensions enable ubuntu-appindicators@ubuntu.com              # if not
   ```
 
+## Install
+
+```sh
+git clone git@github.com:farishan/9router-gtk.git
+cd 9router-gtk
+./install.sh              # copies to ~/.local/share/9router-gtk + autostart entry
+./install.sh --uninstall  # removes both, and stops the indicator if running
+```
+
+`install.sh` is the only supported path. It writes `Exec=` with the real install
+prefix, so there is no hardcoded username in this repo and the checkout can live
+anywhere. There is no `.desktop` file in the repo: `install.sh` generates it,
+because a template would either carry a fixed absolute path or need a placeholder
+that fails confusingly if copied by hand.
+
+After editing `9router-usage.py`, re-run `./install.sh` and restart the indicator:
+
+```sh
+kill $(cat ~/.cache/9router-usage.pid)
+```
+
+Log out and back in if you would rather not restart it by hand — the autostart entry
+has a 10s delay so the indicator appears after the shell settles.
+
 ## Usage
+
+Run from the install prefix (or the checkout, for development):
 
 ```sh
 python3 9router-usage.py          # run in the foreground
@@ -90,8 +116,9 @@ items have genuinely different meanings.
 
 ## Autostart
 
-Installed at `~/.config/autostart/9router-usage.desktop`, with a 10s delay so it
-starts after the shell settles. There is deliberately **no restart wrapper**.
+Installed by `install.sh` at `~/.config/autostart/9router-usage.desktop`, pointing at
+`~/.local/share/9router-gtk/9router-usage.py`. It has a 10s delay so it starts after
+the shell settles, and there is deliberately **no restart wrapper**.
 
 To stop it: `kill $(cat ~/.cache/9router-usage.pid)`. Never `pkill python` —
 the PID file plus the singleton lock is what keeps exactly one instance alive.
@@ -127,7 +154,7 @@ This matches 9Router's own definition in `open-sse/providers/pricing.js`.
 | File | Purpose |
 | --- | --- |
 | `9router-usage.py` | The indicator |
-| `9router-usage.desktop` | Autostart entry (copy to `~/.config/autostart/`) |
+| `install.sh` | Installs / uninstalls the script and generates the autostart entry |
 | `plan.md` | Investigation notes, safety rules, and the post-reboot checklist |
 
 ## Safety
