@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=9Router Token Usage
+Comment=Show today's non-cached input token usage in the top panel
+Exec=/usr/bin/python3 /home/faris/dev/9router-gtk/9router-usage.py
+Terminal=false
+Hidden=false
+NoDisplay=false
+X-GNOME-Autostart-enabled=true
+X-GNOME-Autostart-Delay=10
