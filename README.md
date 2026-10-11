@@ -1,7 +1,7 @@
 # 9router-usage
 
-A GNOME top-panel indicator showing **today's non-cached input token usage** from
-a local [9Router](https://9router.dev) instance, next to wifi / volume / battery.
+A GNOME top-panel indicator showing **today's non-cached input token usage** from a
+local **9Router** instance, next to wifi / volume / battery.
 
 ```
 ⇅ 743.3k
