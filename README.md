@@ -3,9 +3,7 @@
 A GNOME top-panel indicator showing **today's non-cached input token usage** from a
 local **9Router** instance, next to wifi / volume / battery.
 
-```
-⇅ 743.3k
-```
+![The `⇅` token indicator in the GNOME top panel, next to wifi, volume and battery](screenshot.png)
 
 One Python file, one install script, no build step, no dependencies beyond
 PyGObject. It does not modify GNOME, does not touch your shell extensions, and
@@ -171,7 +169,7 @@ expected, not a bug — they come from two different programs:
 
 | Icon (left → right) | Program | What "Quit" does |
 | --- | --- | --- |
-| `⇅` + `743.3k` | **this project** — `9router-usage.py` | closes the indicator; **server keeps running** |
+| `⇅` + token count | **this project** — `9router-usage.py` | closes the indicator; **server keeps running** |
 | `⋮` (3 dots) | **9Router itself** — `cli.js --tray` | stops the **server** |
 
 The `⋮` icon is upstream and not ours. Merging them was investigated and
@@ -219,6 +217,7 @@ definition in `open-sse/providers/pricing.js`.
 | `9router-usage.py` | The indicator |
 | `install.sh` | Installs / uninstalls the script and generates the autostart entry |
 | `verify.sh` | One-shot check of the install → run → uninstall loop |
+| `screenshot.png` | The panel, as shown at the top of this page |
 | `docs/RATIONALE.md` | Why it is built this way, and the bugs that shaped it |
 | `TODO.md` | Known gaps and the roadmap |
 

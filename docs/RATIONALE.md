@@ -213,7 +213,7 @@ If you see two items left of the wifi/volume/battery cluster, that is expected:
 
 | Icon | Owner | "Quit" means |
 | --- | --- | --- |
-| `⇅ 743.3k` | this project | close the indicator; **the server keeps running** |
+| `⇅` + token count | this project | close the indicator; **the server keeps running** |
 | `⋮` | 9Router's own tray | stop the **server** |
 
 Merging them was investigated and **declined**. The two `Quit` items mean
