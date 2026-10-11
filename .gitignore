@@ -1,0 +1,9 @@
+# Nothing is generated into the checkout -- install.sh writes to
+# ~/.local/share and ~/.config. These are here so an editor or a stray manual
+# run cannot commit local state.
+*.pyc
+__pycache__/
+
+# verify.sh runs in a mktemp sandbox, but a leftover log from a debugging
+# session should never be committed either.
+*.log

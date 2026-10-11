@@ -119,7 +119,7 @@ mkdir -p "$SB_CACHE"
 BASE_URL="$(sed -n 's/^BASE_URL = "\(.*\)"/\1/p' "$ROOT/$NAME.py")"
 [ -n "$BASE_URL" ] || BASE_URL="http://localhost:20128"
 
-printf '%sverify 9router-gtk%s\n' "$C_B" "$C_N"
+printf '%sverify 9router-usage%s\n' "$C_B" "$C_N"
 note "sandbox: $SANDBOX"
 note "9Router: $BASE_URL"
 
@@ -138,10 +138,21 @@ fi
 [ -f "$SB_AUTOSTART" ] \
     && ok "autostart entry written" \
     || no "missing autostart entry"
-if grep -q "/home/faris" "$SB_PREFIX/$NAME.py" "$SB_AUTOSTART" 2>/dev/null; then
-    no "a hardcoded /home/faris path leaked into the installed files"
+# The installed files must not carry the maintainer's home or the checkout path.
+# Checked against whatever $HOME is right now, not a hardcoded name: the bug this
+# guards against is "the source path got baked in", and it is equally a bug if it
+# is /home/someone-else.
+leaked=""
+for needle in "$HOME" "$ROOT"; do
+    [ -n "$needle" ] || continue
+    grep -qF "$needle" "$SB_PREFIX/$NAME.py" "$SB_AUTOSTART" 2>/dev/null \
+        && leaked="$leaked '$needle'"
+done
+if [ -n "$leaked" ]; then
+    no "an absolute path leaked into the installed files:$leaked"
+    note "installed files must reference only the install prefix"
 else
-    ok "no hardcoded home path in installed files"
+    ok "no source or home path in installed files"
 fi
 if grep '^Exec=' "$SB_AUTOSTART" 2>/dev/null | grep -qF "$SB_PREFIX/$NAME.py"; then
     ok "Exec= points at the real install prefix"

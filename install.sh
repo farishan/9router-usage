@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Install 9router-gtk: copy the indicator into ~/.local/share and autostart it.
+# Install 9router-usage: copy the indicator into ~/.local/share and autostart it.
 #   ./install.sh            install (or reinstall after edits; restarts if running)
 #   ./install.sh --uninstall remove the autostart entry and stop the indicator
 set -euo pipefail
