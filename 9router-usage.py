@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import fcntl
 import json
 import os
 import signal
@@ -37,28 +38,56 @@ def fetch_usage():
     return max(0, prompt - cached), data
 
 
+_lock_fd = None
+
+
 def acquire_singleton():
+    """Take an exclusive lock on the PID file, held for this process's lifetime.
+
+    The kernel drops an flock when its holder dies, so a crashed or killed
+    indicator never leaves a lock behind and never locks the next launch out.
+    That is what makes a stale PID file harmless.
+
+    The PID written inside is a *record* -- for humans, and for install.sh --
+    and deliberately not a gate. `os.kill(pid, 0)` succeeds for any live PID,
+    including one the kernel has recycled to an unrelated process, so trusting
+    it as a gate locked people out permanently. Trust the lock instead.
+    """
+    global _lock_fd
     os.makedirs(os.path.dirname(PID_FILE), exist_ok=True)
-    if os.path.exists(PID_FILE):
-        try:
-            with open(PID_FILE) as fh:
-                old = int(fh.read().strip())
-            os.kill(old, 0)
-            return False
-        except (ValueError, OSError):
-            pass
-    with open(PID_FILE, "w") as fh:
-        fh.write(str(os.getpid()))
+    fd = os.open(PID_FILE, os.O_RDWR | os.O_CREAT, 0o644)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        os.close(fd)
+        return False
+    os.ftruncate(fd, 0)
+    os.write(fd, f"{os.getpid()}\n".encode())
+    os.fsync(fd)
+    # Raw int fd, not a file object: nothing in Python will garbage-collect it
+    # and drop the lock behind our back.
+    _lock_fd = fd
     return True
 
 
 def release_singleton():
+    """Drop the lock, leaving the file in place as a record.
+
+    Do not unlink it. Unlinking races with a second process that already opened
+    the old inode and locked it: it would be holding a lock on a file that no
+    longer has a name, while a third process creates a fresh file and locks
+    that too. Two instances, two "successful" locks. Keeping one inode forever
+    means exactly one lock forever.
+    """
+    global _lock_fd
+    if _lock_fd is None:
+        return
     try:
-        with open(PID_FILE) as fh:
-            if int(fh.read().strip()) == os.getpid():
-                os.unlink(PID_FILE)
-    except (OSError, ValueError):
+        fcntl.flock(_lock_fd, fcntl.LOCK_UN)
+    except OSError:
         pass
+    os.close(_lock_fd)
+    _lock_fd = None
 
 
 def build_menu():

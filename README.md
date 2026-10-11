@@ -9,6 +9,9 @@ the GNOME top panel, next to wifi / volume / battery.
 
 - 9Router reachable at `http://localhost:20128`
 - `gir1.2-ayatanaappindicator3-0.1` and GTK 3 (both present on Ubuntu 22.04)
+- `flock(1)` from util-linux, used by `install.sh` to tell a running instance from a
+  stale PID file. Present by default on Ubuntu; `install.sh` refuses to run without it
+  rather than guess.
 - **`ubuntu-appindicators@ubuntu.com` must be enabled.** It is the tray host — without
   it nothing can render in the panel at all, and 9Router's own systray2 tray falls
   back to drawing a raw override-redirect X window in the top-right, which flickers.
@@ -23,7 +26,7 @@ the GNOME top panel, next to wifi / volume / battery.
 ```sh
 git clone git@github.com:farishan/9router-gtk.git
 cd 9router-gtk
-./install.sh              # copies to ~/.local/share/9router-gtk + autostart entry
+./install.sh              # copies to ~/.local/share/9router-usage + autostart entry
 ./install.sh --uninstall  # removes both, and stops the indicator if running
 ```
 
@@ -33,14 +36,14 @@ anywhere. There is no `.desktop` file in the repo: `install.sh` generates it,
 because a template would either carry a fixed absolute path or need a placeholder
 that fails confusingly if copied by hand.
 
-After editing `9router-usage.py`, re-run `./install.sh` and restart the indicator:
+After editing `9router-usage.py`, just re-run `./install.sh`. It stops the running
+instance, copies the new file, and restarts it, so the panel picks up the change
+immediately. If nothing was running, it says so and leaves it to autostart at next
+login.
 
 ```sh
-kill $(cat ~/.cache/9router-usage.pid)
+./verify.sh   # check the whole install/run/uninstall loop still works
 ```
-
-Log out and back in if you would rather not restart it by hand — the autostart entry
-has a 10s delay so the indicator appears after the shell settles.
 
 ## Usage
 
@@ -117,11 +120,22 @@ items have genuinely different meanings.
 ## Autostart
 
 Installed by `install.sh` at `~/.config/autostart/9router-usage.desktop`, pointing at
-`~/.local/share/9router-gtk/9router-usage.py`. It has a 10s delay so it starts after
+`~/.local/share/9router-usage/9router-usage.py`. It has a 10s delay so it starts after
 the shell settles, and there is deliberately **no restart wrapper**.
 
-To stop it: `kill $(cat ~/.cache/9router-usage.pid)`. Never `pkill python` —
-the PID file plus the singleton lock is what keeps exactly one instance alive.
+To stop it: `kill $(cat ~/.cache/9router-usage.pid)`. Never `pkill python` — killing
+every `python3` on the box would take unrelated things with it.
+
+`~/.cache/9router-usage.pid` is a **record, not a gate**. The indicator holds an
+exclusive `flock` on it for its whole lifetime, and that lock — not the PID inside it —
+is what says whether something is running. The kernel drops the lock the instant the
+process dies, so a crash or a hard kill cannot leave you locked out forever.
+
+The old code asked `os.kill(pid, 0)` instead, which succeeds for *any* live PID,
+including one the kernel had recycled to something unrelated — so a stale file could
+permanently prevent startup, and `install.sh` could kill a stranger. Both scripts now
+verify the lock first, and `install.sh` additionally confirms
+`/proc/<pid>/cmdline` names this program before signalling anything.
 
 ## How the number is computed
 
@@ -155,7 +169,23 @@ This matches 9Router's own definition in `open-sse/providers/pricing.js`.
 | --- | --- |
 | `9router-usage.py` | The indicator |
 | `install.sh` | Installs / uninstalls the script and generates the autostart entry |
+| `verify.sh` | One-shot check of the install → run → uninstall loop |
 | `plan.md` | Investigation notes, safety rules, and the post-reboot checklist |
+
+## Verify
+
+`./verify.sh` is the executable form of "it installs, runs and uninstalls". It runs
+every step inside a throwaway `HOME`, so it cannot disturb your real installation and
+is safe to run while the indicator is up.
+
+It checks that install writes the right files, that the generated `.desktop` validates,
+that `--once` returns a number, that a second instance is refused, that reinstalling
+stops the old instance, that a stale PID file never kills an unrelated process, and
+that `--uninstall` leaves nothing behind. Exit 0 means everything that could run
+passed.
+
+Steps needing a display or a running 9Router report `SKIP` rather than passing
+vacuously — a green that means nothing is worse than a red.
 
 ## Safety
 
@@ -167,5 +197,6 @@ Deliberately conservative after a previous tray attempt caused screen flicker:
 - Never touches global GTK state — no theme name, icon theme, CSS provider or
   `GDK_SCALE`. Those force shell-wide repaints.
 - No shell extension is enabled or modified. In particular `hi@faris` is left alone.
-- Singleton PID lock, no restart loop, and every network error is caught so the
+- Singleton is an `flock` held for the process lifetime, so a crash cannot leave the
+  next launch locked out. No restart loop, and every network error is caught so the
   process cannot die and blink the icon out of the panel.
