@@ -32,7 +32,31 @@ SB_AUTOSTART="$SB_CONFIG/autostart/$NAME.desktop"
 SB_PID="$SB_CACHE/$NAME.pid"
 
 BG_PID=""
+
+# Stop any indicator this run started.
+#
+# Cleanup must kill the indicator, not merely the subshell that launched it.
+# `sb ... &` yields the *subshell's* PID, so killing $! leaves python running and
+# still registered on the StatusNotifierWatcher bus -- which does not show up as
+# a stray process so much as an extra icon in the user's panel, one per run.
+# Sweeping by sandbox path is safe because mktemp gives a path unique to this
+# run, so it cannot match anything outside this test.
+sweep() {
+    local pid
+    pid="$(cat "$SB_PID" 2>/dev/null || true)"
+    case "$pid" in '' | *[!0-9]*) ;; *) kill "$pid" 2>/dev/null ;; esac
+    pkill -f "$SANDBOX" 2>/dev/null
+    local i
+    for ((i = 0; i < 20; i++)); do
+        pgrep -f "$SANDBOX" >/dev/null 2>&1 || return 0
+        sleep 0.1
+    done
+    pkill -9 -f "$SANDBOX" 2>/dev/null
+    return 0
+}
+
 cleanup() {
+    sweep
     [ -n "$BG_PID" ] && kill "$BG_PID" 2>/dev/null
     rm -rf "$SANDBOX"
     return 0
@@ -266,6 +290,16 @@ if [ -z "$leftover" ]; then
 else
     no "still present:$leftover"
 fi
+
+# ------------------------------------------------------ 9. leaves nothing
+sec "9. verify.sh leaves no indicator behind"
+leaked="$(pgrep -f "$SANDBOX" 2>/dev/null | tr '\n' ' ')"
+if [ -z "$leaked" ]; then
+    ok "no instance outlived this run"
+else
+    no "processes still running out of this sandbox: $leaked"
+fi
+sweep
 
 # ----------------------------------------------------------------- summary
 printf '\n'
